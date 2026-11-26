@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador del Sistema de Combustible del APU-AI-9V</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    background:#eef2f5;
+    font-family:Arial,Helvetica,sans-serif;
+    color:#17202a;
+    overflow-x:auto;
+}
+
+header{
+    background:#0b2239;
+    color:white;
+    text-align:center;
+    padding:16px 20px;
+    box-shadow:0 3px 12px rgba(0,0,0,.18);
+}
+
+header h1{
+    margin:0;
+    font-size:38px;
+    letter-spacing:.5px;
+}
+
+header p{
+    margin:6px 0 0;
+    font-size:15px;
+    opacity:.9;
+}
+
+/* =====================================================
+   DISTRIBUCIÓN GENERAL
+===================================================== */
+
+.area-general{
+    width:1740px;
+    margin:15px auto 25px;
+    display:grid;
+    grid-template-columns:180px 1380px 150px;
+    gap:15px;
+    align-items:stretch;
+}
+
+/* =====================================================
+   PANEL IZQUIERDO
+===================================================== */
+
+.panel-lateral{
+    background:#e9eef2;
+    border:2px solid #ccd6dd;
+    border-radius:55px;
+    padding:24px 13px;
+    box-shadow:0 5px 18px rgba(0,0,0,.08);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+
+.panel-lateral h2{
+    margin:0 0 18px;
+    text-align:center;
+    font-size:18px;
+    line-height:1.2;
+    color:#0b2239;
+}
+
+.lista-botones{
+    display:grid;
+    grid-template-columns:repeat(2,62px);
+    gap:11px 10px;
+    justify-content:center;
+}
+
+.boton-numero{
+    width:62px;
+    height:62px;
+    border:none;
+    border-radius:50%;
+    background:#0b5ed7;
+    color:white;
+    font-size:21px;
+    font-weight:bold;
+    cursor:pointer;
+    box-shadow:
+        0 4px 8px rgba(0,0,0,.20),
+        inset 0 -4px 0 rgba(0,0,0,.13);
+    transition:.2s;
+}
+
+.boton-numero:hover{
+    transform:scale(1.06);
+}
+
+.boton-numero.activo{
+    background:#ffdf00;
+    color:#17202a;
+    box-shadow:
+        0 0 0 5px rgba(255,223,0,.18),
+        0 0 17px rgba(255,223,0,.55);
+}
+
+.btn-comenzar,
+.btn-reiniciar{
+    width:140px;
+    border:none;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+    box-shadow:0 4px 10px rgba(0,0,0,.15);
+}
+
+.btn-comenzar{
+    min-height:52px;
+    margin-top:20px;
+    border-radius:28px;
+    background:#ffdf00;
+    color:#17202a;
+    font-size:16px;
+}
+
+.btn-reiniciar{
+    min-height:44px;
+    margin-top:10px;
+    border-radius:24px;
+    background:#dc3545;
+    font-size:14px;
+}
+
+/* =====================================================
+   PANEL CENTRAL
+===================================================== */
+
+.panel-simulador{
+    background:white;
+    border-radius:18px;
+    box-shadow:0 8px 26px rgba(0,0,0,.12);
+    overflow:hidden;
+}
+
+.tablero-scroll{
+    overflow:auto;
+    padding:14px;
+}
+
+.tablero{
+    position:relative;
+    width:1345px;
+    height:710px;
+    margin:auto;
+    background:white;
+    border:2px solid #d1d9df;
+    border-radius:14px;
+}
+
+/* =====================================================
+   PANEL DERECHO - DESCARGA PDF
+===================================================== */
+
+.panel-derecho{
+    background:#e9eef2;
+    border:2px solid #ccd6dd;
+    border-radius:28px;
+    padding:20px 12px;
+    box-shadow:0 5px 18px rgba(0,0,0,.08);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+}
+
+.panel-derecho h3{
+    margin:5px 0 18px;
+    text-align:center;
+    font-size:17px;
+    color:#0b2239;
+}
+
+/* El botón ahora es un enlace directo al PDF */
+.btn-descargar{
+    width:122px;
+    padding:15px 9px;
+    border:none;
+    border-radius:18px;
+    background:#0b5ed7;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+    box-shadow:0 4px 10px rgba(0,0,0,.18);
+    line-height:1.25;
+    font-size:13px;
+    text-decoration:none;
+    text-align:center;
+    display:block;
+    transition:.2s;
+}
+
+.btn-descargar:hover{
+    background:#084fb8;
+    transform:translateY(-2px);
+}
+
+.flecha{
+    display:block;
+    font-size:30px;
+    line-height:1;
+    margin:4px 0 8px;
+}
+
+/* =====================================================
+   COMPONENTES
+===================================================== */
+
+.componente{
+    position:absolute;
+    z-index:8;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.componente img{
+    object-fit:contain;
+    filter:drop-shadow(0 4px 3px rgba(0,0,0,.20));
+    transition:transform .25s, filter .25s;
+}
+
+.componente.activo-verde img{
+    transform:scale(1.06);
+    filter:
+        drop-shadow(0 0 6px #ffeb3b)
+        drop-shadow(0 0 12px #ffdf00);
+}
+
+.componente.activo-naranja img{
+    transform:scale(1.06);
+    filter:
+        drop-shadow(0 0 7px #ffb300)
+        drop-shadow(0 0 14px #ff6f00);
+}
+
+/* POSICIONES */
+
+#c111{left:45px;top:545px;width:225px}
+#c111 img{width:215px;height:130px}
+
+#c222{left:230px;top:445px;width:95px}
+#c222 img{width:73px;height:103px}
+
+#c333{left:255px;top:335px;width:100px}
+#c333 img{width:73px;height:80px}
+
+#c444{left:86px;top:674px;width:140px}
+#c444 img{width:140px;height:84px}
+.tablero-scroll{padding-bottom:64px}
+
+#c555{left:650px;top:360px;width:195px}
+#c555 img{width:180px;height:78px}
+
+#c666{left:370px;top:326px;width:130px}
+#c666 img{width:115px;height:105px}
+
+#c777{left:375px;top:59px;width:150px}
+#c777 img{width:140px;height:80px}
+
+#c888{left:814px;top:165px;width:105px}
+#c888 img{width:76px;height:128px}
+
+#c999{left:1000px;top:42px;width:180px}
+#c999 img{width:155px;height:103px}
+
+#c000{left:1210px;top:84px;width:105px}
+#c000 img{width:88px;height:58px}
+
+.nombre-especial{
+    position:absolute;
+    z-index:10;
+    font-size:17px;
+    font-weight:bold;
+    color:#111820;
+    background:rgba(255,255,255,.88);
+    padding:4px 8px;
+    border-radius:6px;
+}
+
+.nombre-arranque{left:1135px;top:155px}
+.nombre-operacion{left:980px;top:340px}
+
+/* =====================================================
+   TUBERÍAS
+===================================================== */
+
+.tuberias{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:2;
+    pointer-events:none;
+}
+
+.conducto-borde,
+.conducto-interior,
+.fluido-verde,
+.fluido-naranja{
+    fill:none;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+}
+
+.conducto-borde{stroke:#343434;stroke-width:11}
+.conducto-interior{stroke:#f7f4ec;stroke-width:7}
+.fluido-verde,.fluido-naranja{stroke-width:7;opacity:0}
+.fluido-verde{stroke:#ffdf00}
+.fluido-naranja{stroke:#ff8c00}
+.fluido-verde.encendido,.fluido-naranja.encendido{opacity:1}
+
+
+/* =====================================================
+   INYECTORES DE OPERACIÓN
+===================================================== */
+
+.banco-inyectores{
+    position:absolute;
+    left:980px;
+    top:380px;
+    width:340px;
+    height:290px;
+    z-index:9;
+}
+
+.inyector-fila{
+    height:38px;
+    display:flex;
+    align-items:center;
+}
+
+.inyector-fila img{
+    width:70px;
+    height:31px;
+    object-fit:contain;
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,.18));
+}
+
+.spray{
+    position:relative;
+    width:170px;
+    height:30px;
+    opacity:0;
+}
+
+.spray::before,
+.spray::after{
+    content:"";
+    position:absolute;
+    left:2px;
+    top:10px;
+    width:9px;
+    height:7px;
+    border-radius:50%;
+    background:#ff9800;
+    box-shadow:
+        15px -4px 0 0 #ff9800,
+        28px 4px 0 -1px #ff6f00,
+        42px -5px 0 -1px #ffb74d,
+        58px 5px 0 -1px #ff8f00,
+        76px -3px 0 -2px #ffc107,
+        96px 4px 0 -2px #ff6f00,
+        117px -4px 0 -2px #ffb300,
+        138px 3px 0 -3px #ff8c00;
+}
+
+.spray::after{
+    top:16px;
+    transform:scale(.8);
+    opacity:.7;
+}
+
+.banco-inyectores.activo .inyector-fila img{
+    filter:
+        drop-shadow(0 0 5px #ffb300)
+        drop-shadow(0 0 9px #ff6f00);
+}
+
+.banco-inyectores.activo .spray{opacity:1}
+
+.banco-inyectores.activo .spray::before{
+    animation:spray1 .43s linear infinite;
+}
+
+.banco-inyectores.activo .spray::after{
+    animation:spray2 .55s linear infinite;
+}
+
+@keyframes spray1{
+    from{transform:translateX(0);opacity:1}
+    to{transform:translateX(22px);opacity:.1}
+}
+
+@keyframes spray2{
+    from{transform:translateX(0) scale(.8);opacity:.75}
+    to{transform:translateX(27px) scale(.8);opacity:.08}
+}
+
+.estado{
+    min-height:54px;
+    padding:13px 18px;
+    background:#edf2f6;
+    border-top:1px solid #d5dde3;
+    text-align:center;
+    font-size:17px;
+    font-weight:bold;
+}
+</style>
+<style>
+#panel-concepto{background:#fffbe0;border-left:6px solid #ffdf00;border-radius:10px;padding:20px 24px;margin-top:14px;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+#titulo-concepto{color:#0b2239;font-size:24px;font-weight:bold;margin:0 0 10px}
+#texto-concepto{color:#17202a;font-size:20px;line-height:1.55;margin:0}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>SIMULADOR DEL SISTEMA DE COMBUSTIBLE DEL APU-AI-9V</h1>
+    <p>Simulación interactiva del recorrido del combustible, inyector de arranque e inyectores de operación</p>
+</header>
+
+<div class="area-general">
+
+<!-- =====================================================
+     PANEL IZQUIERDO
+===================================================== -->
+
+<aside class="panel-lateral">
+
+    <h2>SECUENCIA<br>DEL SISTEMA</h2>
+
+    <div class="lista-botones">
+        <button class="boton-numero" id="btn1" onclick="activarPaso(1)">1</button>
+        <button class="boton-numero" id="btn2" onclick="activarPaso(2)">2</button>
+        <button class="boton-numero" id="btn3" onclick="activarPaso(3)">3</button>
+        <button class="boton-numero" id="btn4" onclick="activarPaso(4)">4</button>
+        <button class="boton-numero" id="btn5" onclick="activarPaso(5)">5</button>
+        <button class="boton-numero" id="btn6" onclick="activarPaso(6)">6</button>
+        <button class="boton-numero" id="btn7" onclick="activarPaso(7)">7</button>
+        <button class="boton-numero" id="btn8" onclick="activarPaso(8)">8</button>
+        <button class="boton-numero" id="btn9" onclick="activarPaso(9)">9</button>
+        <button class="boton-numero" id="btn10" onclick="activarPaso(10)">10</button>
+    </div>
+
+    <button class="btn-comenzar" onclick="comenzarSimulacion()">
+        ▶ COMENZAR
+    </button>
+
+    <button class="btn-reiniciar" onclick="reiniciar()">
+        ■ REINICIAR
+    </button>
+
+</aside>
+
+
+<!-- =====================================================
+     PANEL CENTRAL
+===================================================== -->
+
+<section class="panel-simulador">
+
+<div class="tablero-scroll">
+<div class="tablero">
+
+<svg class="tuberias" style="overflow:visible" viewBox="0 0 1345 710" preserveAspectRatio="none">
+
+    <defs>
+      <g id="recorrido-conductos">
+    <path d="M440 132 V325"/>
+    <path d="M515 100 H665"/>
+    <path d="M492 385 H650"/>
+    <path d="M146 665 V695 M205 723 H275 V522"/>
+    <path d="M275 448 L275 375 L340 375"/>
+    <path d="M340 375 L410 375"/>
+    <path d="M650 385 L670 385"/>
+    <path d="M840 400 L990 400"/>
+
+    <path d="M440 325 L440 250"/>
+    <path d="M440 200 L440 100 L515 100"/>
+    <path d="M665 100 L1065 100"/>
+    <path d="M1155 100 L1250 100"/>
+
+    <path d="M865 395 L865 245"/>
+    <path d="M865 245 L865 100"/>
+    <path d="M990 400 L990 655"/>
+
+    <path d="M802 400 H865"/>
+      </g>
+    </defs>
+    <use href="#recorrido-conductos" class="conducto-borde"/>
+    <use href="#recorrido-conductos" class="conducto-interior"/>
+    <defs id="mascaras-fluido"></defs>
+
+    <path id="v1" class="fluido-verde" d="M146 665 V695"/>
+    <path id="v2" class="fluido-verde" d="M205 723 H275 V522"/>
+    <path id="v3" class="fluido-verde" d="M275 448 V375 H296"/>
+    <path id="v4" class="fluido-verde" d="M296 375 H397"/>
+    <path id="v5" class="fluido-verde" d="M440 325 V132"/>
+    <path id="v6" class="fluido-verde" d="M492 385 H670"/>
+    <path id="v7" class="fluido-verde" d="M516 100 H865 V187"/>
+    <path id="v8" class="fluido-verde" d="M802 400 H865 V270"/>
+    <path id="v9" class="fluido-verde" d="M865 100 H1065"/>
+    <path id="v10" class="fluido-verde" d="M865 400 H990"/>
+    <path id="n1" class="fluido-naranja" d="M1155 100 H1250"/>
+    <path id="n2" class="fluido-naranja" d="M990 400 V655"/>
+
+</svg>
+
+<!-- COMPONENTES SIN NÚMEROS VISIBLES -->
+
+<div class="componente" id="c111">
+    <img src="111.png" alt="Componente 111">
+</div>
+
+<div class="componente" id="c222">
+    <img src="222.png" alt="Componente 222">
+</div>
+
+<div class="componente" id="c333">
+    <img src="333.png" alt="Componente 333">
+</div>
+
+<div class="componente" id="c444">
+    <img src="444.png" alt="Componente 444">
+</div>
+
+<div class="componente" id="c555">
+    <img src="555.png" alt="Componente 555">
+</div>
+
+<div class="componente" id="c666">
+    <img src="666.png" alt="Componente 666">
+</div>
+
+<div class="componente" id="c777">
+    <img src="777.png" alt="Componente 777">
+</div>
+
+<div class="componente" id="c888">
+    <img src="888.png" alt="Componente 888">
+</div>
+
+<div class="componente" id="c999">
+    <img src="999.png" alt="Componente 999">
+</div>
+
+<div class="componente" id="c000">
+    <img src="000.png" alt="Inyector de arranque">
+</div>
+
+<div class="nombre-especial nombre-arranque">
+    INYECTOR DE ARRANQUE
+</div>
+
+<div class="nombre-especial nombre-operacion">
+    INYECTORES DE OPERACIÓN
+</div>
+
+<div class="banco-inyectores" id="bancoInyectores">
+
+    <div class="inyector-fila">
+        <img src="000.png" alt="Inyector"><span class="spray"></span>
+    </div>
+
+    <div class="inyector-fila">
+        <img src="000.png" alt="Inyector"><span class="spray"></span>
+    </div>
+
+    <div class="inyector-fila">
+        <img src="000.png" alt="Inyector"><span class="spray"></span>
+    </div>
+
+    <div class="inyector-fila">
+        <img src="000.png" alt="Inyector"><span class="spray"></span>
+    </div>
+
+    <div class="inyector-fila">
+        <img src="000.png" alt="Inyector"><span class="spray"></span>
+    </div>
+
+    <div class="inyector-fila">
+        <img src="000.png" alt="Inyector"><span class="spray"></span>
+    </div>
+
+    <div class="inyector-fila">
+        <img src="000.png" alt="Inyector"><span class="spray"></span>
+    </div>
+
+</div>
+
+</div>
+</div>
+
+<div class="estado" id="estado">
+    Sistema listo. Presione un número o COMENZAR.
+</div>
+
+<div id="panel-concepto" aria-live="polite">
+<h2 id="titulo-concepto">DESCRIPCIÓN DEL COMPONENTE</h2>
+<p id="texto-concepto">Seleccione un número para consultar el concepto correspondiente.</p>
+</div>
+</section>
+
+
+<!-- =====================================================
+     PANEL DERECHO - DESCARGA DIRECTA DEL PDF
+===================================================== -->
+
+<aside class="panel-derecho">
+
+    <h3>DOCUMENTO</h3>
+
+    <a
+        href="SISTEMA DE COMBUSTIBLE.pdf"
+        download="SISTEMA DE COMBUSTIBLE MI17-1V.pdf"
+        class="btn-descargar"
+    >
+        DESCARGAR
+        <span class="flecha">↓</span>
+        SISTEMA DE COMBUSTIBLE<br>
+        MI17-1V
+    </a>
+
+</aside>
+
+</div>
+
+
+<script>
+
+const temporizadores = [];
+const svgNS = "http://www.w3.org/2000/svg";
+
+const movimientos = [
+    { nombre: "Tanque principal", grupos: [] },
+    { nombre: "Bomba booster", grupos: [[["v1"], ["444"]]] },
+    { nombre: "Válvula 610200A", grupos: [[["v2"], ["222"]]] },
+    { nombre: "Filtro", grupos: [[["v3"], ["333"]]] },
+    { nombre: "Bomba reguladora NR-9B", grupos: [[["v4"], ["666"]]] },
+    { nombre: "Bomba de combustible 726", grupos: [[["v5"], ["777"]]] },
+    { nombre: "Válvula MKT-212", grupos: [[["v6"], ["555"]]] },
+    { nombre: "Válvula MKT-210", grupos: [[["v7", "v8"], ["888"]]] },
+    { nombre: "Válvula KL-1 e inyector de arranque", grupos: [
+        [["v9"], ["999"]], [["n1"], ["000"]]
+    ] },
+    { nombre: "Inyectores operacionales", grupos: [
+        [["v10"], []], [["n2"], ["banco"]]
+    ] }
+];
+
+function programar(accion, demora) {
+    const id = setTimeout(() => {
+        temporizadores.splice(temporizadores.indexOf(id), 1);
+        accion();
+    }, demora);
+    temporizadores.push(id);
+}
+
+function cancelarTemporizadores() {
+    temporizadores.splice(0).forEach(id => clearTimeout(id));
+}
+
+function limpiarVisual() {
+    document.querySelectorAll(".encendido").forEach(linea => {
+        linea.classList.remove("encendido");
+        linea.removeAttribute("mask");
+    });
+    document.getElementById("mascaras-fluido").replaceChildren();
+    document.querySelectorAll(".activo, .activo-verde, .activo-naranja")
+        .forEach(elemento => elemento.classList.remove("activo", "activo-verde", "activo-naranja"));
+}
+
+function iluminar(codigo) {
+    if (codigo === "banco") {
+        document.getElementById("bancoInyectores").classList.add("activo");
+        return;
+    }
+    document.getElementById("c" + codigo)
+        .classList.add(codigo === "000" ? "activo-naranja" : "activo-verde");
+}
+
+function mostrarTramo(id, duracion = 0) {
+    const tramo = document.getElementById(id);
+    tramo.classList.add("encendido");
+    if (!duracion) return;
+
+    const mascara = document.createElementNS(svgNS, "mask");
+    mascara.id = "visible-" + id;
+    mascara.setAttribute("maskUnits", "userSpaceOnUse");
+    mascara.setAttribute("x", "-50");
+    mascara.setAttribute("y", "-50");
+    mascara.setAttribute("width", "1500");
+    mascara.setAttribute("height", "900");
+
+    const avance = document.createElementNS(svgNS, "path");
+    const longitud = tramo.getTotalLength();
+    avance.setAttribute("d", tramo.getAttribute("d"));
+    avance.setAttribute("fill", "none");
+    avance.setAttribute("stroke", "white");
+    avance.setAttribute("stroke-width", "30");
+    avance.setAttribute("stroke-dasharray", longitud + " " + longitud);
+    avance.style.strokeDashoffset = longitud + "px";
+
+    mascara.append(avance);
+    document.getElementById("mascaras-fluido").append(mascara);
+    tramo.setAttribute("mask", "url(#" + mascara.id + ")");
+    avance.animate(
+        [{ strokeDashoffset: longitud + "px" }, { strokeDashoffset: "0px" }],
+        { duration: duracion, fill: "forwards" }
+    );
+    programar(() => {
+        tramo.removeAttribute("mask");
+        mascara.remove();
+    }, duracion);
+}
+
+function mostrarPrevios(paso) {
+    iluminar("111");
+    for (let anterior = 2; anterior < paso; anterior++) {
+        for (const [tramos, componentes] of movimientos[anterior - 1].grupos) {
+            tramos.forEach(id => mostrarTramo(id));
+            componentes.forEach(iluminar);
+        }
+    }
+}
+
+function activarPaso(paso, automatico = false) {
+    if (!automatico) cancelarTemporizadores();
+
+    limpiarVisual();
+    mostrarPrevios(paso);
+    document.getElementById("btn" + paso).classList.add("activo");
+    if (paso === 10) document.getElementById("btn9").classList.add("activo");
+
+    const movimiento = movimientos[paso - 1];
+    document.getElementById("estado").textContent = "PASO " + paso + " · " + movimiento.nombre;
+    document.dispatchEvent(new CustomEvent("paso-apu", { detail: paso }));
+
+    const duracion = movimiento.grupos.length > 1 ? 550 : 850;
+    movimiento.grupos.forEach(([tramos, componentes], indice) => {
+        const iniciar = () => {
+            tramos.forEach(id => mostrarTramo(id, duracion));
+            programar(() => componentes.forEach(iluminar), duracion);
+        };
+        if (indice === 0) iniciar();
+        else programar(iniciar, indice * duracion);
+    });
+}
+
+function comenzarSimulacion() {
+    cancelarTemporizadores();
+    activarPaso(1, true);
+    for (let paso = 2; paso <= movimientos.length; paso++) {
+        programar(() => activarPaso(paso, true), (paso - 1) * 1500);
+    }
+}
+
+function reiniciar() {
+    cancelarTemporizadores();
+    limpiarVisual();
+    document.getElementById("estado").textContent =
+        "Sistema reiniciado. Presione un número o COMENZAR.";
+    document.dispatchEvent(new CustomEvent("paso-apu", { detail: 0 }));
+}
+
+</script>
+
+<script>
+(() => {
+const conceptos = [
+  [
+    "1. TANQUE PRINCIPAL",
+    "Es el depósito encargado de almacenar el combustible que utiliza el helicóptero Mi-17 para alimentar sus motores principales y otros sistemas auxiliares, entre ellos la Unidad de Potencia Auxiliar (APU) AI-9V. tiene una capacidad de 445 litro."
+  ],
+  [
+    "2. BOMBA BOOSTER",
+    "Se encuentra instalada en la parte inferior del tanque de consumo del helicóptero, sujeta mediante una brida y un adaptador. Está fuera del depósito. Su función es extraer e impulsar el combustible almacenado en el tanque de consumo, proporcionando presión a la entrada de los sistemas de alimentación de los motores principales y del APU-AI-9V. Garantiza que el combustible llegue con la presión de alimentación necesaria hacia la unidad reguladora NR-9B."
+  ],
+  [
+    "3. VÁLVULA 610200A",
+    "La válvula 610200A controla el paso inicial del combustible hacia el sistema del APU cuando se inicia el procedimiento de arranque."
+  ],
+  [
+    "4. FILTRO",
+    "Su función es retener impurezas o partículas presentes en el combustible, evitando que lleguen a los componentes posteriores del sistema, especialmente a la bomba reguladora y a los inyectores."
+  ],
+  [
+    "5. BOMBA REGULADORA NR-9B",
+    "La NR-9B regula y dosifica el combustible que necesita el APU de acuerdo con las condiciones de funcionamiento."
+  ],
+  [
+    "6. BOMBA DE COMBUSTIBLE 726",
+    "Su función es generar la presión necesaria para suministrar combustible durante la etapa inicial del arranque del AI-9V. La documentación indica que la bomba 726 se conecta aproximadamente al tercer segundo del ciclo de arranque."
+  ],
+  [
+    "7. VÁLVULA MKT-212",
+    "Controla el suministro de combustible operacional y permite cortar el combustible principal para detener el APU."
+  ],
+  [
+    "8. VÁLVULA MKT-210",
+    "Permite el suministro del combustible de arranque hacia los inyectores principales durante la etapa inicial del funcionamiento del APU."
+  ],
+  [
+    "9. INYECTOR DE ARRANQUE Y VÁLVULA KL-1",
+    "9-1. Válvula KL-1: controla el paso del combustible. 9. Inyector de arranque: introduce y pulveriza el combustible."
+  ],
+  [
+    "10. INYECTORES OPERACIONALES",
+    "Los inyectores operacionales pulverizan el combustible principal hacia la cámara de combustión, permitiendo mantener el funcionamiento del APU."
+  ]
+];
+const titulo = document.getElementById("titulo-concepto");
+const texto = document.getElementById("texto-concepto");
+document.addEventListener("paso-apu", ({ detail: paso }) => {
+    const concepto = conceptos[paso - 1];
+    titulo.textContent = concepto ? concepto[0] : "DESCRIPCIÓN DEL COMPONENTE";
+    texto.textContent = concepto ? concepto[1] : "Seleccione un número para consultar el concepto correspondiente.";
+});
+})();
+</script>
+</body>
+</html>
